@@ -24,10 +24,7 @@ tcpServer:
 p2pV2:
   port: 47101
   bootNodes:
-  #staticNodes:
-  #  xuper:
-  #    - "/ip4/<ip>/tcp/<port>/p2p/<node_hash>"
-    
+      - "{{.SeedUrl}}"
 miner:
 # 密钥存储路径
   keypath: ./data/keys

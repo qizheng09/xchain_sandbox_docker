@@ -15,6 +15,14 @@ var updateCmd = &cobra.Command{
 	Short: "Update sandbox enviroment",
 	Run: func(cmd *cobra.Command, args []string) {
 		fmt.Println("Now updating the sandbox enviroment.Please wait...")
-		fmt.Println("Update successful!")
+		if err := updateEnv(); err != nil {
+			fmt.Println("Update failed", err.Error())
+		} else {
+			fmt.Println("Update successful!")
+		}
 	},
+}
+
+func updateEnv() error {
+	return nil
 }

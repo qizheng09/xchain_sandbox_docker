@@ -2,7 +2,7 @@
     "version": "1",
     "predistribution": [
         {
-            "address": "f3prTg9itaZY6m48wXXikXdcxiByW7zgk",
+            "address": "{{.PredistributionAddr}}",
             "quota": "100000000000000000000"
         }
     ],
@@ -17,7 +17,7 @@
         "name": "tdpos",
         "config": {
             "timestamp": "1566830669000000000",
-            "proposer_num": "3",
+            "proposer_num": "{{.ProposerNum}}",
             "period": "3000",
             "alternate_interval": "9000",
             "term_interval": "9000",
@@ -25,16 +25,12 @@
             "vote_unit_price": "1",
             "init_proposer": {
                 "1": [
-                    "dpzuVdosQrF2kmzumhVeFQZa1aYcdgFpN",
-                    "f3prTg9itaZY6m48wXXikXdcxiByW7zgk",
-                    "U9sKwFmgJVfzgWcfAG47dKn1kLQTqeZN3"
+                    {{.InitProposer}}
                 ]
             },
             "init_proposer_neturl": {
                 "1": [
-		    "/ip4/127.0.0.1/tcp/47101/p2p/QmTdHf8shB5MY1Ur8w7mPjHcxKGL6CCfE43EpYn2Z8fMzy",
-		    "/ip4/127.0.0.1/tcp/47102/p2p/QmeSjPfpn9D6oa7Kpr4aMR4yUhWTX9vre53PjjqzJFYZYW",
-		    "/ip4/127.0.0.1/tcp/47103/p2p/QmPYPuXsNXYRfVyr6FsingX8gwFW3FwgJDtuJW1iYugwJn"
+		    {{.InitProposerNeturl}}
                 ]
             },
             "bft_config": {

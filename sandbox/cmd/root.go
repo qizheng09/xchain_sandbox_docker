@@ -7,6 +7,9 @@ import (
 	"github.com/spf13/cobra"
 )
 
+type sandbox struct {
+}
+
 var (
 	rootCmd = &cobra.Command{
 		Use:   "xchain-sandbox",
