@@ -6,6 +6,7 @@ import (
 	"io/ioutil"
 	"os"
 	"os/exec"
+	"os/user"
 	"strconv"
 	"strings"
 	"text/template"
@@ -25,6 +26,7 @@ var initCmd = &cobra.Command{
 		fmt.Println("Now initializing the sandbox enviroment.Please wait...")
 		if err := initEnv(); err != nil {
 			fmt.Println("Initialize failed! err = ", err.Error())
+			return
 		}
 		fmt.Println("Initialize successful!")
 	},
@@ -38,11 +40,14 @@ var (
 	sandRoot     string
 	initRpcPort  int64
 	initP2pPort  int64
+	userCurr     string
 )
 
 func initFlags() {
 	xRoot = os.Getenv("XCHAIN_ROOT")
 	sandRoot = os.Getenv("XCHAIN_SAND_ROOT")
+	userC, _ := user.Current()
+	userCurr = userC.Username
 	initCmd.Flags().Int64VarP(&nodeNumber, "nodeNumber", "N", 5, "The number of nodes to start")
 	initCmd.Flags().Int64VarP(&minerNumber, "minerNumber", "M", 3, "The number of nodes to start")
 	initCmd.Flags().BoolVarP(&withInitConf, "withInitConf", "", false, "The flag whether to init `xchain.yaml` and `xuper.json`")
@@ -57,10 +62,17 @@ func initFlags() {
 // init docker-compose.yml
 func initEnv() error {
 	if xRoot == "" {
-		return errors.New("The XCHAIN_ROOT environment variable have not been set!")
+		return errors.New("The XCHAIN_ROOT environment variable have not been set")
 	}
 	if sandRoot == "" {
-		return errors.New("The XCHAIN_SAND_ROOT environment variable have not been set!")
+		return errors.New("The XCHAIN_SAND_ROOT environment variable have not been set")
+	}
+	if nodeNumber > 50 {
+		return errors.New("The nodeNumber can not bigger than 50 in one machine")
+	}
+	println("userCurr", userCurr)
+	if userCurr == "" {
+		return errors.New("Get current username error")
 	}
 	if err := updateBinary(); err != nil {
 		return err
@@ -94,29 +106,16 @@ func updateBinary() error {
 	if err := copyFile(sorcCliPath, destCliPath); err != nil {
 		return err
 	}
+
+	sorcWasmPath := xRoot + "/output/wasm2c"
+	destWasmPath := sandRoot + "/bin/wasm2c"
+	if err := copyFile(sorcWasmPath, destWasmPath); err != nil {
+		return err
+	}
 	// update plugins
 	sorcPluginsPath := xRoot + "/output/plugins"
 	destPluginsPath := sandRoot + "/plugins/"
-	fs, _ := ioutil.ReadDir(sorcPluginsPath)
-	for _, v := range fs {
-		if v.IsDir() {
-			fss, _ := ioutil.ReadDir(sorcPluginsPath + "/" + v.Name())
-			for _, vs := range fss {
-				srcFile := sorcPluginsPath + "/" + v.Name() + "/" + vs.Name()
-				dstFile := destPluginsPath + v.Name() + "/" + vs.Name()
-				if err := copyFile(srcFile, dstFile); err != nil {
-					return err
-				}
-			}
-		} else {
-			srcFile := sorcPluginsPath + "/" + v.Name()
-			dstFile := destPluginsPath + v.Name()
-			if err := copyFile(srcFile, dstFile); err != nil {
-				return err
-			}
-		}
-	}
-	return nil
+	return copyDir(sorcPluginsPath, destPluginsPath)
 }
 
 // copyFile copy src file to dst, will overwrite the dst file
@@ -141,10 +140,36 @@ func copyFile(src, dst string) error {
 	return nil
 }
 
+// copyDir copy dir
+func copyDir(src, dst string) error {
+	fmt.Println("copyDir", src, "to", dst)
+	fs, _ := ioutil.ReadDir(src)
+	for _, v := range fs {
+		if v.IsDir() {
+			fss, _ := ioutil.ReadDir(src + "/" + v.Name())
+			for _, vs := range fss {
+				os.Mkdir(dst+v.Name(), 0755)
+				srcFile := src + "/" + v.Name() + "/" + vs.Name()
+				dstFile := dst + v.Name() + "/" + vs.Name()
+				if err := copyFile(srcFile, dstFile); err != nil {
+					return err
+				}
+			}
+		} else {
+			srcFile := src + "/" + v.Name()
+			dstFile := dst + v.Name()
+			if err := copyFile(srcFile, dstFile); err != nil {
+				return err
+			}
+		}
+	}
+	return nil
+}
+
 // initNodesFiles will init nodes date/keys, data/netKeys and create filefolder needed
 func initNodesFiles(nodeNums int64) error {
 	if nodeNums < 0 {
-		return errors.New("Node number can not less than 0!")
+		return errors.New("Node number can not less than 0")
 	}
 	dstNodesPath := sandRoot + "/nodes"
 	fmt.Println("initNodesFiles Path=", dstNodesPath)
@@ -184,6 +209,32 @@ func initNode(i int) error {
 		return err
 	}
 	if err := os.Mkdir(dstNodeDataPath+"/netkeys", 0755); err != nil {
+		return err
+	}
+
+	if err := os.Mkdir(dstNodePath+"/plugins", 0755); err != nil {
+		return err
+	}
+
+	if err := os.Mkdir(dstNodePath+"/plugins/consensus", 0755); err != nil {
+		return err
+	}
+
+	if err := os.Mkdir(dstNodePath+"/plugins/contract", 0755); err != nil {
+		return err
+	}
+
+	if err := os.Mkdir(dstNodePath+"/plugins/crypto", 0755); err != nil {
+		return err
+	}
+
+	if err := os.Mkdir(dstNodePath+"/plugins/kv", 0755); err != nil {
+		return err
+	}
+
+	srcPluginsPath := sandRoot + "/plugins"
+	dstPluginsPath := dstNodePath + "/plugins/"
+	if err := copyDir(srcPluginsPath, dstPluginsPath); err != nil {
 		return err
 	}
 
@@ -253,20 +304,15 @@ func getNodeNetURL(nodeID int) string {
 	return netURL
 }
 
-func setNodeConf() error {
+func renderNodeConf() error {
 	bootURL := getNodeNetURL(1)
 	nodeConfTplPath := sandRoot + "/conf/xchain.yaml.tpl"
-	t, err := template.ParseFiles(nodeConfTplPath)
-	if err != nil {
-		return err
+	_ = os.Mkdir(sandRoot+"/conf/tmp", 0755)
+	nodeConfTmpPath := sandRoot + "/conf/tmp/xchain.yaml"
+	chainConfTpl := map[string]interface{}{
+		"SeedUrl": bootURL,
 	}
-	nodeConfPath := sandRoot + "/conf/tmp/xchain.yaml"
-	f, err := os.Create(nodeConfPath)
-	if err != nil {
-		return err
-	}
-	defer f.Close()
-	return t.Execute(f, map[string]string{"SeedUrl": bootURL})
+	return renderFile(nodeConfTplPath, nodeConfTmpPath, chainConfTpl)
 }
 
 // ChainConfTpl is the chain conf tpl
@@ -283,7 +329,7 @@ func getNodeAddress(nodeID int) string {
 	return string(address)
 }
 
-func setChainConf() error {
+func renderChainConf() error {
 	addrList := []string{}
 	netURLList := []string{}
 	for i := 1; i <= int(minerNumber); i++ {
@@ -311,36 +357,39 @@ func setChainConf() error {
 		}
 	}
 
-	chainConfTpl := &ChainConfTpl{
-		PredistributionAddr: addrList[0],
-		ProposerNum:         strconv.Itoa(int(minerNumber)),
-		InitProposer:        InitProposer,
-		InitProposerNeturl:  InitProposerNeturl,
+	chainConfTpl := map[string]interface{}{
+		"PredistributionAddr": addrList[0],
+		"ProposerNum":         strconv.Itoa(int(minerNumber)),
+		"InitProposer":        InitProposer,
+		"InitProposerNeturl":  InitProposerNeturl,
 	}
-
 	chainConfTplPath := sandRoot + "/conf/xuper.json.tpl"
-	t, err := template.ParseFiles(chainConfTplPath)
+	chainConfTmpPath := sandRoot + "/conf/tmp/xuper.json"
+	return renderFile(chainConfTplPath, chainConfTmpPath, chainConfTpl)
+}
+
+func renderFile(tplFile, tmpFile string, args interface{}) error {
+	t, err := template.ParseFiles(tplFile)
 	if err != nil {
 		return err
 	}
 
-	chainConfPath := sandRoot + "/conf/tmp/xuper.json"
-	f, err := os.Create(chainConfPath)
+	f, err := os.Create(tmpFile)
 	if err != nil {
 		return err
 	}
 	defer f.Close()
-	return t.Execute(f, chainConfTpl)
+	return t.Execute(f, args)
 }
 
 func initSetConf() error {
 	if err := copySeedNodeConf(); err != nil {
 		return err
 	}
-	if err := setNodeConf(); err != nil {
+	if err := renderNodeConf(); err != nil {
 		return err
 	}
-	if err := setChainConf(); err != nil {
+	if err := renderChainConf(); err != nil {
 		return err
 	}
 	if err := copyNodeConf(2, int(nodeNumber)); err != nil {
@@ -370,6 +419,26 @@ func initConf() error {
 	return initSetConf()
 }
 
+func genSlice(num int) []int {
+	res := []int{}
+	for i := 1; i <= num; i++ {
+		res = append(res, i)
+	}
+	return res
+}
+
+func renderComposeFile() error {
+	composeConfTplPath := sandRoot + "/conf/docker-compose.yml.tpl"
+	composeConfTmpPath := sandRoot + "/docker-compose.yml"
+	composeFileTpl := map[string]interface{}{
+		"Index":    genSlice(int(nodeNumber)),
+		"SandRoot": sandRoot,
+		"User":     userCurr,
+		"PortSeg":  int(10),
+	}
+	return renderFile(composeConfTplPath, composeConfTmpPath, composeFileTpl)
+}
+
 func initDockerCompose() error {
-	return nil
+	return renderComposeFile()
 }
