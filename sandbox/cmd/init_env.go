@@ -33,14 +33,14 @@ var initCmd = &cobra.Command{
 }
 
 var (
-	nodeNumber   int64
-	minerNumber  int64
-	withInitConf bool
-	xRoot        string
-	sandRoot     string
-	initRpcPort  int64
-	initP2pPort  int64
-	userCurr     string
+	nodeNumber      int64
+	minerNumber     int64
+	withoutInitConf bool
+	xRoot           string
+	sandRoot        string
+	initRpcPort     int64
+	initP2pPort     int64
+	userCurr        string
 )
 
 func initFlags() {
@@ -50,7 +50,7 @@ func initFlags() {
 	userCurr = userC.Username
 	initCmd.Flags().Int64VarP(&nodeNumber, "nodeNumber", "N", 5, "The number of nodes to start")
 	initCmd.Flags().Int64VarP(&minerNumber, "minerNumber", "M", 3, "The number of nodes to start")
-	initCmd.Flags().BoolVarP(&withInitConf, "withInitConf", "", false, "The flag whether to init `xchain.yaml` and `xuper.json`")
+	initCmd.Flags().BoolVarP(&withoutInitConf, "withoutInitConf", "", false, "The flag whether to init `xchain.yaml` and `xuper.json`")
 	initCmd.Flags().Int64VarP(&initRpcPort, "initRpcPort", "", 37101, "The init rpc mapping port")
 	initCmd.Flags().Int64VarP(&initP2pPort, "initP2pPort", "", 47101, "The init p2p mapping port")
 }
@@ -70,7 +70,6 @@ func initEnv() error {
 	if nodeNumber > 50 {
 		return errors.New("The nodeNumber can not bigger than 50 in one machine")
 	}
-	println("userCurr", userCurr)
 	if userCurr == "" {
 		return errors.New("Get current username error")
 	}
@@ -301,26 +300,23 @@ func getNodeNetURL(nodeID int) string {
 	netKey, _ := exec.Command("bash", "-c", cmdStr).Output()
 	netURL := strings.Replace(string(netKey), "\n", "", -1)
 	netURL = strings.Replace(netURL, "47101", strconv.Itoa(int(initP2pPort)+nodeID-1), -1)
+	netURL = strings.Replace(netURL, "ip4", "dns4", -1)
+	netURL = strings.Replace(netURL, "127.0.0.1", "node"+strconv.Itoa(nodeID), -1)
 	return netURL
 }
 
 func renderNodeConf() error {
 	bootURL := getNodeNetURL(1)
 	nodeConfTplPath := sandRoot + "/conf/xchain.yaml.tpl"
-	_ = os.Mkdir(sandRoot+"/conf/tmp", 0755)
+	err := os.Mkdir(sandRoot+"/conf/tmp", 0755)
+	if err != nil {
+		return err
+	}
 	nodeConfTmpPath := sandRoot + "/conf/tmp/xchain.yaml"
 	chainConfTpl := map[string]interface{}{
 		"SeedUrl": bootURL,
 	}
 	return renderFile(nodeConfTplPath, nodeConfTmpPath, chainConfTpl)
-}
-
-// ChainConfTpl is the chain conf tpl
-type ChainConfTpl struct {
-	PredistributionAddr string
-	ProposerNum         string
-	InitProposer        string
-	InitProposerNeturl  string
 }
 
 func getNodeAddress(nodeID int) string {
@@ -405,7 +401,7 @@ func initSetConf() error {
 }
 
 func initConf() error {
-	if !withInitConf {
+	if withoutInitConf {
 		if err := copyNodeConf(1, int(nodeNumber)); err != nil {
 			return err
 		}

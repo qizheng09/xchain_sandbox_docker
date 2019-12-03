@@ -36,7 +36,7 @@ cd sandbox && go build
 Init the sandbox enviroment, including binaries, nodes, leadger and so on.
 
 ```
-./sandbox init 
+./sandbox init -N {{nodes number}} -M {{miner number}}
 ```
 #### Update Sandbox
 
@@ -68,4 +68,10 @@ Clear the sandbox enviroment
 
 ```
 ./sandbox clear 
+```
+
+#### For more useage
+
+```
+./sandbox --help
 ```
