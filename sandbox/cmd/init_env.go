@@ -308,10 +308,7 @@ func getNodeNetURL(nodeID int) string {
 func renderNodeConf() error {
 	bootURL := getNodeNetURL(1)
 	nodeConfTplPath := sandRoot + "/conf/xchain.yaml.tpl"
-	err := os.Mkdir(sandRoot+"/conf/tmp", 0755)
-	if err != nil {
-		return err
-	}
+	os.Mkdir(sandRoot+"/conf/tmp", 0755)
 	nodeConfTmpPath := sandRoot + "/conf/tmp/xchain.yaml"
 	chainConfTpl := map[string]interface{}{
 		"SeedUrl": bootURL,

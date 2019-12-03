@@ -9,6 +9,7 @@ A multi xchain node sandbox running in docker
   (You need to build XuperUnion and xchain_sandbox_docker by docker contianer if you use MAC OS or Windows)
 * Go 1.12.x or later
 * Git
+* docker && docker-compose
 
 ### Build
 
