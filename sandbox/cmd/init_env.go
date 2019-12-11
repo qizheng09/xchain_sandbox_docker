@@ -299,7 +299,6 @@ func getNodeNetURL(nodeID int) string {
 	cmdStr := sandRoot + "/bin/xchain-cli netURL preview --path " + sandRoot + "/nodes/node" + strconv.Itoa(nodeID) + "/data/netkeys/"
 	netKey, _ := exec.Command("bash", "-c", cmdStr).Output()
 	netURL := strings.Replace(string(netKey), "\n", "", -1)
-	netURL = strings.Replace(netURL, "47101", strconv.Itoa(int(initP2pPort)+nodeID-1), -1)
 	netURL = strings.Replace(netURL, "ip4", "dns4", -1)
 	netURL = strings.Replace(netURL, "127.0.0.1", "node"+strconv.Itoa(nodeID), -1)
 	return netURL
