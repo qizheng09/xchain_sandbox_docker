@@ -60,6 +60,9 @@ func initFlags() {
 // init NodesFiles
 // init configs: xchain.yaml, xuper.json
 // init docker-compose.yml
+// TODO: @DhunterAO Now the network mode of xchain container is bridge,
+// the performance of bridge is pretty poor. If the nodes of your network more than 30,
+// you'd better choose host mode of your container. The tool will support this mode in near feature.
 func initEnv() error {
 	if xRoot == "" {
 		return errors.New("The XCHAIN_ROOT environment variable have not been set")
@@ -67,7 +70,7 @@ func initEnv() error {
 	if sandRoot == "" {
 		return errors.New("The XCHAIN_SAND_ROOT environment variable have not been set")
 	}
-	if nodeNumber > 50 {
+	if nodeNumber > 100 {
 		return errors.New("The nodeNumber can not bigger than 50 in one machine")
 	}
 	if userCurr == "" {

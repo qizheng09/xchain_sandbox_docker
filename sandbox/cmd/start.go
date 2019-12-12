@@ -17,12 +17,14 @@ var startCmd = &cobra.Command{
 		fmt.Println("Now starting the sandbox enviroment.Please wait...")
 		err := start()
 		if err != nil {
-
+			return
+		} else {
+			fmt.Println("Start the sandbox enviroment successfully!")
 		}
-		fmt.Println("Start the sandbox enviroment successfully!")
 	},
 }
 
 func start() error {
+	// TODO: @DhunterAO
 	return nil
 }
